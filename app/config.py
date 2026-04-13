@@ -40,8 +40,6 @@ class Settings(BaseSettings):
             query = dict(parse_qsl(parsed.query, keep_blank_values=True))
             # Turso remoto requiere secure=true para evitar redirecciones 308.
             query.setdefault("secure", "true")
-            if self.turso_auth_token_clean:
-                query.setdefault("authToken", self.turso_auth_token_clean)
             return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
         return self.database_url
 
