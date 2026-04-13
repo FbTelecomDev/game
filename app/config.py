@@ -1,5 +1,6 @@
 ﻿from pathlib import Path
 from typing import Any, List
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,16 +28,20 @@ class Settings(BaseSettings):
     @property
     def sqlalchemy_database_url(self) -> str:
         if self.database_url.startswith("libsql://"):
-            return self.database_url.replace("libsql://", "sqlite+libsql://", 1)
+            raw = self.database_url.replace("libsql://", "sqlite+libsql://", 1)
+            parsed = urlsplit(raw)
+            query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+            # Turso remoto requiere secure=true para evitar redirecciones 308.
+            query.setdefault("secure", "true")
+            if self.turso_auth_token:
+                query.setdefault("authToken", self.turso_auth_token)
+            return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
         return self.database_url
 
     @property
     def database_connect_args(self) -> dict[str, Any]:
         if self.database_url.startswith("libsql://"):
-            args: dict[str, Any] = {}
-            if self.turso_auth_token:
-                args["auth_token"] = self.turso_auth_token
-            return args
+            return {}
 
         if self.database_url.startswith("sqlite"):
             return {"check_same_thread": False}
