@@ -36,6 +36,8 @@ app.include_router(ranking.router)
 
 @app.on_event("startup")
 def on_startup():
+    if settings.database_url.startswith("libsql://") and not settings.turso_auth_token_clean:
+        raise RuntimeError("Falta TURSO_AUTH_TOKEN para conexión libsql/Turso.")
     create_data_directory()
     Base.metadata.create_all(bind=engine)
 
