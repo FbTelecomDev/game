@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends
+﻿from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app import crud, schemas
@@ -22,31 +22,39 @@ def _to_ranking_item(partida):
 
 
 @router.get("/hoy", response_model=schemas.ApiResponse)
-def ranking_hoy(db: Session = Depends(get_db)):
-    partidas = crud.get_ranking_hoy(db)
+def ranking_hoy(
+    limit: int = Query(default=10, ge=1, le=100),
+    skip: int = Query(default=0, ge=0),
+    is_cliente: bool | None = Query(default=None),
+    db: Session = Depends(get_db)
+):
+    partidas = crud.get_ranking_dia(db, dias_atras=0, is_cliente=is_cliente, limit=limit, skip=skip)
     data = [_to_ranking_item(p) for p in partidas]
-    return {"success": True, "message": "Ranking del día obtenido correctamente", "data": data}
+    return {"success": True, "message": "Ranking de hoy obtenido", "data": data}
 
 
-@router.get("/hoy/top10", response_model=schemas.ApiResponse)
-def ranking_hoy_top10(db: Session = Depends(get_db)):
-    partidas = crud.get_ranking_hoy(db, limit=10)
+@router.get("/ayer", response_model=schemas.ApiResponse)
+def ranking_ayer(
+    limit: int = Query(default=10, ge=1, le=100),
+    skip: int = Query(default=0, ge=0),
+    is_cliente: bool | None = Query(default=None),
+    db: Session = Depends(get_db)
+):
+    partidas = crud.get_ranking_dia(db, dias_atras=1, is_cliente=is_cliente, limit=limit, skip=skip)
     data = [_to_ranking_item(p) for p in partidas]
-    return {"success": True, "message": "Top 10 del día obtenido correctamente", "data": data}
+    return {"success": True, "message": "Ranking de ayer obtenido", "data": data}
 
 
 @router.get("/general", response_model=schemas.ApiResponse)
-def ranking_general(db: Session = Depends(get_db)):
-    partidas = crud.get_ranking_general(db, limit=20)
+def ranking_general(
+    limit: int = Query(default=20, ge=1, le=100),
+    skip: int = Query(default=0, ge=0),
+    is_cliente: bool | None = Query(default=None),
+    db: Session = Depends(get_db)
+):
+    partidas = crud.get_ranking_general(db, is_cliente=is_cliente, limit=limit, skip=skip)
     data = [_to_ranking_item(p) for p in partidas]
-    return {"success": True, "message": "Ranking general obtenido correctamente", "data": data}
-
-
-@router.get("/general/top10", response_model=schemas.ApiResponse)
-def ranking_general_top10(db: Session = Depends(get_db)):
-    partidas = crud.get_ranking_general(db, limit=10)
-    data = [_to_ranking_item(p) for p in partidas]
-    return {"success": True, "message": "Top 10 general obtenido correctamente", "data": data}
+    return {"success": True, "message": "Ranking general obtenido", "data": data}
 
 
 @router.get("/general/mejor-por-jugador", response_model=schemas.ApiResponse)

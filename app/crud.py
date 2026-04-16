@@ -114,25 +114,45 @@ def list_partidas(db: Session, jugador_id: int | None = None, dia: date | None =
     return db.execute(stmt).scalars().all()
 
 
-def get_ranking_hoy(db: Session, limit: int | None = None):
+def get_ranking_dia(db: Session, dias_atras: int = 0, is_cliente: bool | None = None, limit: int = 10, skip: int = 0):
+    target_date = today_utc_minus_5() - timedelta(days=dias_atras)
+    
+    # Subconsulta para el mejor puntaje por jugador en el día
+    sub_stmt = select(models.Partida.jugador_id, func.max(models.Partida.puntaje).label("max_puntaje")).where(models.Partida.dia == target_date).group_by(models.Partida.jugador_id)
+    subquery = sub_stmt.subquery()
+
     stmt = (
         select(models.Partida)
+        .join(subquery, (models.Partida.jugador_id == subquery.c.jugador_id) & (models.Partida.puntaje == subquery.c.max_puntaje))
+        .join(models.Jugador, models.Partida.jugador_id == models.Jugador.id)
         .options(joinedload(models.Partida.jugador))
-        .where(models.Partida.dia == today_utc_minus_5())
-        .order_by(desc(models.Partida.puntaje), models.Partida.fecha_juego.asc())
+        .where(models.Partida.dia == target_date)
     )
-    if limit is not None:
-        stmt = stmt.limit(limit)
+
+    if is_cliente is not None:
+        stmt = stmt.where(models.Jugador.is_cliente == is_cliente)
+
+    stmt = stmt.group_by(models.Partida.jugador_id).order_by(desc(models.Partida.puntaje), models.Partida.fecha_juego.asc()).limit(limit).offset(skip)
     return db.execute(stmt).scalars().all()
 
 
-def get_ranking_general(db: Session, limit: int = 20):
+def get_ranking_general(db: Session, is_cliente: bool | None = None, limit: int = 20, skip: int = 0):
+    subquery = (
+        select(models.Partida.jugador_id, func.max(models.Partida.puntaje).label("max_puntaje"))
+        .group_by(models.Partida.jugador_id)
+        .subquery()
+    )
     stmt = (
         select(models.Partida)
+        .join(subquery, (models.Partida.jugador_id == subquery.c.jugador_id) & (models.Partida.puntaje == subquery.c.max_puntaje))
+        .join(models.Jugador, models.Partida.jugador_id == models.Jugador.id)
         .options(joinedload(models.Partida.jugador))
-        .order_by(desc(models.Partida.puntaje), models.Partida.fecha_juego.asc())
-        .limit(limit)
     )
+
+    if is_cliente is not None:
+        stmt = stmt.where(models.Jugador.is_cliente == is_cliente)
+
+    stmt = stmt.group_by(models.Partida.jugador_id).order_by(desc(models.Partida.puntaje), models.Partida.fecha_juego.asc()).limit(limit).offset(skip)
     return db.execute(stmt).scalars().all()
 
 

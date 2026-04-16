@@ -1,9 +1,10 @@
 ﻿from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import crud, schemas
+from app import crud, models, schemas
 from app.database import get_db
 
 router = APIRouter(prefix="/api/puntajes", tags=["Puntajes"])
@@ -71,6 +72,19 @@ def list_puntajes(
         for p in partidas
     ]
     return {"success": True, "message": "Partidas obtenidas correctamente", "data": data}
+
+
+@router.get("/pendientes/count", response_model=schemas.ApiResponse)
+def count_puntajes_pendientes(
+    dia: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    count = db.execute(
+        select(func.count(models.PartidaPendiente.id))
+        .where(models.PartidaPendiente.estado == "pendiente")
+        .where(models.PartidaPendiente.dia == (dia or crud.today_utc_minus_5()))
+    ).scalar_one()
+    return {"success": True, "message": "Conteo de pendientes obtenido", "data": {"count": count}}
 
 
 @router.get("/pendientes", response_model=schemas.ApiResponse)
